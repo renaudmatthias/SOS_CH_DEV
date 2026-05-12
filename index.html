@@ -1,37 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
+  <meta charset="UTF-8">
   <title>SOS-CH</title>
-  <!-- 1. OL en premier -->
   <script src="https://cdn.jsdelivr.net/npm/ol@v10.9.0/dist/ol.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.9.0/ol.css">
-  <!-- 2. proj4 après OL -->
   <script src="https://cdn.jsdelivr.net/npm/proj4@2.12.1/dist/proj4.js"></script>
-  <link rel="stylesheet" href="style.css">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <header class="d-flex flex-wrap justify-content-center py-3 mb-4 border-bottom">
+  <div class="d-flex flex-column" style="height: 100vh;">
+
+    <header class="d-flex flex-wrap justify-content-center py-3 mb-0 border-bottom px-3">
       <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
-        <span class="fs-4">Simple header</span>
+        <img src="Logo.png" alt="SOS-CH" width="50" height="40" class="me-2">
       </a>
       <ul class="nav nav-pills">
-        <li class="nav-item"><a href="#" class="nav-link active" aria-current="page">Home</a></li>
+        <li class="nav-item"><a href="#" class="nav-link active">Home</a></li>
         <li class="nav-item"><a href="#" class="nav-link">Features</a></li>
-        <li class="nav-item"><a href="#" class="nav-link">Pricing</a></li>
-        <li class="nav-item"><a href="#" class="nav-link">FAQs</a></li>
-        <li class="nav-item"><a href="#" class="nav-link">About</a></li>
       </ul>
     </header>
+
+    <!-- La carte prend tout l'espace restant -->
+    <div id="map" class="flex-grow-1">
+
+      <!-- Barre de recherche -->
+      <div id="search-bar">
+        <div id="search-input-wrap">
+          <span id="search-icon">🔍</span>
+          <input type="text" id="search-input" placeholder="Rechercher une adresse en Suisse…" autocomplete="off" />
+          <button id="search-clear" title="Effacer">×</button>
+        </div>
+        <ul id="search-results"></ul>
+      </div>
+
+      <!-- Légende -->
+      <div id="map-legend">
+        <div class="legend-item">
+          <span class="legend-dot" style="background: blue;"></span> Caserne de pompiers
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background: green;"></span> Poste de police
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background: red;"></span> Hôpital
+        </div>
+      </div>
+
+      <!-- Panneau d'info (rempli dynamiquement par script.js) -->
+      <div id="poi-panel">
+        <div id="poi-header">
+          <span id="poi-emoji"></span>
+          <div>
+            <div id="poi-type"></div>
+            <div id="poi-name"></div>
+          </div>
+          <button id="poi-close" title="Fermer">×</button>
+        </div>
+        <div id="poi-body"></div>
+      </div>
+
+    </div>
   </div>
 
-  <!-- div map sans script dedans -->
-  <div id="map"></div>
-
-  <!-- 3. Ton script tout à la fin -->
   <script src="script.js"></script>
 </body>
 </html>
