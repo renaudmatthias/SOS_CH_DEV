@@ -100,20 +100,45 @@ function wgs84ToLv95(coord) { return ol.proj.transform(coord, "EPSG:4326", "EPSG
 
 // ── Trouver le POI le plus proche ──
 const poiSources = {};
+const CANDIDATES = 5; // nb de candidats à vol d'oiseau avant de les comparer en durée réelle
 
-function findNearestPOI(lv95Coord, color) {
+// Retourne les N features les plus proches à vol d'oiseau
+function getNearestCandidates(lv95Coord, color, n = CANDIDATES) {
   const source = poiSources[color];
-  if (!source) return null;
-  const features = source.getFeatures();
-  if (!features.length) return null;
-  let nearest = null, minDist = Infinity;
-  features.forEach(f => {
-    const c = f.getGeometry()?.getCoordinates();
-    if (!c) return;
-    const d = Math.hypot(c[0] - lv95Coord[0], c[1] - lv95Coord[1]);
-    if (d < minDist) { minDist = d; nearest = f; }
-  });
-  return nearest;
+  if (!source) return [];
+  return source.getFeatures()
+    .filter(f => f.getGeometry())
+    .map(f => {
+      const c = f.getGeometry().getCoordinates();
+      return { feature: f, dist: Math.hypot(c[0] - lv95Coord[0], c[1] - lv95Coord[1]) };
+    })
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, n)
+    .map(x => x.feature);
+}
+
+// Lance N requêtes Valhalla en parallèle et retourne { feature, data } du plus rapide
+async function findFastestPOI(fromLv95, color) {
+  const candidates = getNearestCandidates(fromLv95, color);
+  if (!candidates.length) return null;
+
+  const fromWgs84 = lv95ToWgs84(fromLv95);
+
+  const results = await Promise.all(
+    candidates.map(async f => {
+      const toWgs84 = lv95ToWgs84(f.getGeometry().getCoordinates());
+      try {
+        const data = await getRoute(fromWgs84, toWgs84);
+        const time = data.trip?.summary?.time ?? Infinity;
+        return { feature: f, data, time };
+      } catch {
+        return { feature: f, data: null, time: Infinity };
+      }
+    })
+  );
+
+  // Garder le plus rapide
+  return results.reduce((best, r) => (r.time < best.time ? r : best), results[0]);
 }
 
 // ── Décoder polyline encodé (Valhalla utilise precision=6) ──
@@ -394,24 +419,22 @@ map.on("singleclick", async (e) => {
   // Itinéraire
   if (activeValhallaMode === "route") {
     const fromLv95  = e.coordinate;
-    const fromWgs84 = lv95ToWgs84(fromLv95);
-    const nearest   = findNearestPOI(fromLv95, selectedRouteColor);
-    if (!nearest) { showToast("Données pas encore chargées, réessaie dans un instant.", "error"); return; }
+    const candidates = getNearestCandidates(fromLv95, selectedRouteColor);
+    if (!candidates.length) { showToast("Données pas encore chargées, réessaie dans un instant.", "error"); return; }
 
-    const toWgs84 = lv95ToWgs84(nearest.getGeometry().getCoordinates());
-    showToast("Calcul de l'itinéraire…", "info");
+    showToast(`Comparaison de ${candidates.length} candidats en parallèle…`, "info");
 
     try {
-      const data    = await getRoute(fromWgs84, toWgs84);
-      const summary = data.trip?.summary;
-      displayRoute(data, selectedRouteColor);
+      const best = await findFastestPOI(fromLv95, selectedRouteColor);
+      if (!best || !best.data) { showToast("Aucun itinéraire trouvé.", "error"); return; }
 
-      // Ouvrir le panel POI le plus proche
+      displayRoute(best.data, selectedRouteColor);
+
       const typeInfo = layerTypeMap[selectedRouteColor];
       elEmoji.textContent = typeInfo.emoji;
       elType.style.color  = typeInfo.color;
       elType.textContent  = typeInfo.label;
-      const props = nearest.getProperties();
+      const props = best.feature.getProperties();
       elName.textContent  =
         props.name || props.Name || props.NAME ||
         props.bezeichnung || props.Bezeichnung ||
@@ -419,6 +442,7 @@ map.on("singleclick", async (e) => {
 
       elBody.innerHTML = "";
 
+      const summary = best.data.trip?.summary;
       if (summary) {
         const mins = Math.round(summary.time / 60);
         const km   = summary.length.toFixed(1);
@@ -426,13 +450,14 @@ map.on("singleclick", async (e) => {
         routeInfo.id = "route-summary";
         routeInfo.innerHTML = `
           <div class="route-row">🚨 <strong>${mins} min</strong> &nbsp;·&nbsp; ${km} km</div>
+          <div class="route-note">✓ Le plus rapide parmi ${candidates.length} candidats</div>
           <button id="clear-route-btn">✕ Effacer l'itinéraire</button>
         `;
         elBody.prepend(routeInfo);
         document.getElementById("clear-route-btn").addEventListener("click", clearRoute);
       }
       panel.style.display = "block";
-      showToast(`Itinéraire calculé ✓  — ${Math.round(summary?.time / 60)} min`, "success");
+      showToast(`Itinéraire calculé ✓  — ${Math.round(best.time / 60)} min`, "success");
     } catch (err) {
       console.error(err);
       showToast("Erreur Valhalla : " + err.message, "error");

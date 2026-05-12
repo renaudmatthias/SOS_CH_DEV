@@ -413,3 +413,9 @@ header {
 .toast-info    { background: #1a56db; color: white; }
 .toast-success { background: #057a55; color: white; }
 .toast-error   { background: #e02424; color: white; }
+
+.route-note {
+  font-size: 11px;
+  color: #057a55;
+  font-style: italic;
+}
